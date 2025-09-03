@@ -1,0 +1,36 @@
+# Binaries for programs and plugins
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Air live reload temporary files
+.tmp/
+__debug_bin
+
+# Logs
+*.log
+
+# Dependency folders
+vendor/
+
+# Build artifacts
+dist/
+build/
+
+# Environment files
+.env
+
+# Temporary files
+tmp/
+coverage.out
+
+# Editor and OS-specific files
+.vscode/
+.idea/
+.DS_Store
+
+# Node modules (if frontend is added later)
+node_modules/
