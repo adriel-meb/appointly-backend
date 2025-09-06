@@ -19,9 +19,9 @@ func main() {
 	router := gin.Default()
 
 	router.GET("/", controllers.GetUsersfunc)
-	router.POST("/signup", controllers.Signup)
-	router.POST("/login", controllers.Login)
-	
+	router.POST("/auth/register", controllers.Signup)
+	router.POST("/auth/login", controllers.Login)
+
 	router.GET("/users", controllers.GetAllUsers)
 	router.DELETE("/users/:email", controllers.DeleteUser)
 

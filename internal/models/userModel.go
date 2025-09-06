@@ -15,6 +15,8 @@ const (
 )
 
 type User struct {
+	gorm.Model
+
 	ID           uint           `gorm:"primaryKey;autoIncrement"`
 	Name         string         `gorm:"type:varchar(100);not null" json:"name" binding:"required"`
 	Email        string         `gorm:"type:varchar(150);uniqueIndex;not null" json:"email" binding:"required,email"`
