@@ -27,5 +27,16 @@ func main() {
 
 	router.GET("/validate", middleware.RequireAuthMiddleware(), controllers.Validate)
 
+	// Provider routes
+	providers := router.Group("/providers")
+	{
+		providers.GET("/", controllers.GetAllProviders)
+		providers.GET("/:id", controllers.GetProviderByID)
+		providers.POST("/", controllers.CreateProvider)
+		providers.PUT("/:id", middleware.RequireAuthMiddleware(), controllers.UpdateProvider)
+		providers.DELETE("/:id", middleware.RequireAuthMiddleware(), controllers.DeleteProvider)
+	}
+
+	// Start the server
 	router.Run()
 }

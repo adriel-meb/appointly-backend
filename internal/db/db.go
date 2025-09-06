@@ -3,6 +3,7 @@ package db
 import (
 	"log"
 	"os"
+
 	"github.com/adriel-meb/appointly-backend/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -24,11 +25,10 @@ func DbConnect() {
 	log.Println("Database connected")
 }
 
-
 func DbMigration() {
 	DbConnect()
 	err := DB.AutoMigrate(
-		&models.User{},
+		&models.User{}, &models.Provider{},
 	)
 
 	if err != nil {
