@@ -18,7 +18,7 @@ func init() {
 func main() {
 	router := gin.Default()
 
-	router.GET("/", controllers.GetUsersfunc)
+	router.GET("/", controllers.GetWelcome)
 	router.POST("/auth/register", controllers.Signup)
 	router.POST("/auth/login", controllers.Login)
 

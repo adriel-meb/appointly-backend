@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"gorm.io/gorm"
 	"net/http"
 	"os"
 	"time"
@@ -12,37 +13,50 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// handles POST /signup request
+// ---------------------- API RESPONSE ---------------------- //
+
+// ---------------------- AUTH HANDLERS ---------------------- //
+
+// Signup handles POST /signup
+// Creates a new user account
+// Signup handles POST /signup
 func Signup(c *gin.Context) {
-	// Define input struct locally
 	type SignupInput struct {
-		Name        string  `json:"name" binding:"required"`
-		Email       string  `json:"email" binding:"required,email"`
-		Password    string  `json:"password" binding:"required,min=6"`
-		Role        string  `json:"role" binding:"omitempty,oneof=patient provider admin"`
-		PhoneNumber *string `json:"phone,omitempty"`
+		Name           string  `json:"name" binding:"required"`
+		Email          string  `json:"email" binding:"required,email"`
+		Password       string  `json:"password" binding:"required,min=6"`
+		Role           string  `json:"role" binding:"omitempty,oneof=patient provider admin"`
+		PhoneNumber    *string `json:"phone,omitempty"`
+		Specialization string  `json:"specialization,omitempty"` // Only for provider
+		Bio            string  `json:"bio,omitempty"`            // Only for provider
 	}
 
 	var input SignupInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, APIResponse{Status: "error", Error: err.Error()})
+		return
+	}
+
+	// Check if email exists
+	var existing models.User
+	if err := db.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+		c.JSON(http.StatusBadRequest, APIResponse{Status: "error", Error: "Email already registered"})
 		return
 	}
 
 	// Hash password
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		c.JSON(http.StatusInternalServerError, APIResponse{Status: "error", Error: "Failed to hash password"})
 		return
 	}
 
-	// Default role = patient
+	// Default role
 	role := input.Role
 	if role == "" {
 		role = string(models.RolePatient)
 	}
 
-	// Map input to User model
 	user := models.User{
 		Name:         input.Name,
 		Email:        input.Email,
@@ -51,16 +65,34 @@ func Signup(c *gin.Context) {
 		PhoneNumber:  input.PhoneNumber,
 	}
 
-	// Save user
-	if err := db.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// Transaction: user + provider
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		if role == string(models.RoleProvider) {
+			provider := models.Provider{
+				Specialization: input.Specialization,
+				Bio:            input.Bio,
+				UserID:         user.ID,
+			}
+			if err := tx.Create(&provider).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, APIResponse{Status: "error", Error: "Could not create user"})
 		return
 	}
 
-	// Respond without password
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "User created successfully",
-		"user": gin.H{
+	// Success response
+	c.JSON(http.StatusCreated, APIResponse{
+		Status:  "success",
+		Message: "User created successfully",
+		Data: gin.H{
 			"id":    user.ID,
 			"name":  user.Name,
 			"email": user.Email,
@@ -70,87 +102,89 @@ func Signup(c *gin.Context) {
 	})
 }
 
-// handles POST /login request
+// Login handles POST /login
+// Authenticates a user and returns a JWT
 func Login(c *gin.Context) {
-	// 1. Bind input
-	var userInput struct {
-		Email    string `json:"email" binding:"required,email"`
+	// 1️⃣ Bind request body
+	var input struct {
+		Email    string `json:"email" binding:"required,email"` // Must be valid email
 		Password string `json:"password" binding:"required,min=6"`
 	}
-
-	if err := c.ShouldBindJSON(&userInput); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, APIResponse{Status: "error", Error: err.Error()})
 		return
 	}
 
-	// 2. Look up user
+	// 2️⃣ Fetch user from database by email
 	var user models.User
-	if err := db.DB.Where("email = ?", userInput.Email).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+	if err := db.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, APIResponse{Status: "error", Error: "Invalid email or password"})
 		return
 	}
 
-	// 3. Check password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(userInput.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+	// 3️⃣ Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, APIResponse{Status: "error", Error: "Invalid email or password"})
 		return
 	}
 
-	// 4. Generate JWT
+	// 4️⃣ Create JWT token (signed with secret)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":   user.ID,
+		"sub":   user.ID, // Subject = User ID
 		"email": user.Email,
 		"role":  user.Role,
-		"iat":   time.Now().Unix(),
-		"exp":   time.Now().Add(time.Hour * 24 * 30).Unix(), // 30 days
+		"iat":   time.Now().Unix(),                          // Issued at
+		"exp":   time.Now().Add(time.Hour * 24 * 30).Unix(), // Expiration 30 days
 	})
 
 	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusInternalServerError, APIResponse{Status: "error", Error: "Failed to generate token"})
 		return
 	}
 
-	// 5. Set cookie (2 days)
+	// 5️⃣ Set auth cookie for browser clients (optional)
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("Authorization", tokenString, 3600*24*2, "", "", false, true)
 
-	// 6. Return JSON + token in response header
+	// 6️⃣ Return JSON with token and user info
 	c.Header("Authorization", "Bearer "+tokenString)
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"token":   tokenString,
-		"user": gin.H{
-			"id":    user.ID,
-			"name":  user.Name,
-			"email": user.Email,
-			"role":  user.Role,
+	c.JSON(200, APIResponse{
+		Status:  "success",
+		Message: "Login successful",
+		Data: gin.H{
+			"token": tokenString,
+			"user": gin.H{
+				"id":    user.ID,
+				"name":  user.Name,
+				"email": user.Email,
+				"role":  user.Role,
+			},
 		},
 	})
 }
 
+// Validate handles GET /validate
+// Checks if the user is logged in via middleware
 func Validate(c *gin.Context) {
-
-	// Get user from context
+	// 1️⃣ Retrieve user from context (set by JWT middleware)
 	user, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found in context"})
+		c.JSON(http.StatusUnauthorized, APIResponse{Status: "error", Error: "Unauthorized"})
 		return
 	}
 
-	// Type assert to models.User
+	// 2️⃣ Type assertion
 	u, ok := user.(models.User)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user type in context"})
+		c.JSON(http.StatusInternalServerError, APIResponse{Status: "error", Error: "Invalid user type"})
 		return
 	}
 
-	// Optionally, you can return user details
-	c.JSON(http.StatusOK, gin.H{
-		"message": "You are LOGGED IN",
-		"user":    u,
+	// 3️⃣ Return logged-in user info
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "You are logged in",
+		Data:    u,
 	})
-	//
-
 }
