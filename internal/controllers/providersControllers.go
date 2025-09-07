@@ -8,10 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Create a new provider (admin only)
+// CreateProvider handles POST /providers (admin only)
 func CreateProvider(c *gin.Context) {
-
-	//Validate the input (specialization, bio, user_id)
 	type CreateProviderInput struct {
 		Specialization string `json:"specialization" binding:"required"`
 		Bio            string `json:"bio"`
@@ -20,34 +18,44 @@ func CreateProvider(c *gin.Context) {
 
 	var input CreateProviderInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Status:  "error",
+			Message: "Invalid input",
+			Error:   err.Error(),
+		})
 		return
 	}
 
-	//check if the user exists
-
+	// Check if user exists
 	var user models.User
-	result := db.DB.First(&user, input.UserID)
-	if result.RowsAffected == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User not found"})
+	if result := db.DB.First(&user, input.UserID); result.RowsAffected == 0 {
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Status:  "error",
+			Message: "User not found",
+		})
 		return
 	}
 
-	// verify that the user is not already a provider
+	// Check if already a provider
 	var existingProvider models.Provider
-	db.DB.Where("user_id = ?", input.UserID).First(&existingProvider)
-	if db.DB.RowsAffected > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User is already a provider"})
+	if db.DB.Where("user_id = ?", input.UserID).First(&existingProvider); db.DB.RowsAffected > 0 {
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Status:  "error",
+			Message: "User is already a provider",
+		})
 		return
 	}
 
-	//verify that the user role is 'provider'
+	// Check user role
 	if user.Role != models.RoleProvider {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User role must be 'provider' to create a provider profile"})
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Status:  "error",
+			Message: "User role must be 'provider' to create a provider profile",
+		})
 		return
 	}
 
-	// Create the provider
+	// Create provider
 	provider := models.Provider{
 		Specialization: input.Specialization,
 		Bio:            input.Bio,
@@ -55,47 +63,65 @@ func CreateProvider(c *gin.Context) {
 	}
 
 	if err := db.DB.Create(&provider).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, APIResponse{
+			Status:  "error",
+			Message: "Failed to create provider",
+			Error:   err.Error(),
+		})
 		return
 	}
 
-	// Respond with the created provider (without sensitive info)
-	c.JSON(http.StatusCreated, gin.H{"message": "provider created", "provider": provider})
-
+	c.JSON(http.StatusCreated, APIResponse{
+		Status:  "success",
+		Message: "Provider created successfully",
+		Data:    provider,
+	})
 }
 
-// retrieve all providers
+// GetAllProviders handles GET /providers
+// It retrieves all providers from the database including their associated users.
+// Returns a standardized APIResponse with the list of providers or an error message.
 func GetAllProviders(c *gin.Context) {
 	var providers []models.Provider
-	result := db.DB.Preload("User").Find(&providers)
 
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+	// Fetch providers with preloaded user data
+	if err := db.DB.Preload("User").Find(&providers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, APIResponse{
+			Status:  "error",
+			Message: "Failed to fetch providers",
+			Error:   err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"providers": providers,
+	// Success response
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "Providers fetched successfully",
+		Data:    gin.H{"providers": providers},
 	})
 }
 
-// retrieve a specific provider by ID
+// GetProviderByID placeholder
 func GetProviderByID(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"message": "GetProviderByID endpoint - to be implemented",
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "GetProviderByID endpoint - to be implemented",
 	})
 }
 
-// delete a provider by ID (admin only)
+// DeleteProvider placeholder
 func DeleteProvider(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"message": "DeleteProvider endpoint - to be implemented",
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "DeleteProvider endpoint - to be implemented",
 	})
 }
 
-// update a provider by ID (admin only)
+// UpdateProvider placeholder
 func UpdateProvider(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"message": "UpdateProvider endpoint - to be implemented",
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "UpdateProvider endpoint - to be implemented",
 	})
 }
