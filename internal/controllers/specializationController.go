@@ -74,3 +74,91 @@ func GetAllSpecializations(c *gin.Context) {
 		Data:    specializations,
 	})
 }
+
+// UpdateSpecialization handles PUT /specializations/:id
+func UpdateSpecialization(c *gin.Context) {
+	// Get specialization ID from URL
+	id := c.Param("id")
+
+	// Define input
+	type UpdateSpecializationInput struct {
+		Name        string `json:"name,omitempty"`
+		Description string `json:"description,omitempty"`
+	}
+
+	var input UpdateSpecializationInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Status:  "error",
+			Message: "Invalid input",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// Find specialization
+	var specialization models.Specialization
+	if err := db.DB.First(&specialization, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, APIResponse{
+			Status:  "error",
+			Message: "Specialization not found",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// Update fields
+	if input.Name != "" {
+		specialization.Name = input.Name
+	}
+	if input.Description != "" {
+		specialization.Description = input.Description
+	}
+
+	// Save
+	if err := db.DB.Save(&specialization).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, APIResponse{
+			Status:  "error",
+			Message: "Failed to update specialization",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "Specialization updated successfully",
+		Data:    specialization,
+	})
+}
+
+// DeleteSpecialization handles DELETE /specializations/:id
+func DeleteSpecialization(c *gin.Context) {
+	id := c.Param("id")
+
+	// Find specialization
+	var specialization models.Specialization
+	if err := db.DB.First(&specialization, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, APIResponse{
+			Status:  "error",
+			Message: "Specialization not found",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// Delete
+	if err := db.DB.Delete(&specialization).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, APIResponse{
+			Status:  "error",
+			Message: "Failed to delete specialization",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "Specialization deleted successfully",
+	})
+}

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"gorm.io/gorm"
 	"net/http"
 	"os"
@@ -22,13 +23,13 @@ import (
 // Signup handles POST /signup
 func Signup(c *gin.Context) {
 	type SignupInput struct {
-		Name           string  `json:"name" binding:"required"`
-		Email          string  `json:"email" binding:"required,email"`
-		Password       string  `json:"password" binding:"required,min=6"`
-		Role           string  `json:"role" binding:"omitempty,oneof=patient provider admin"`
-		PhoneNumber    *string `json:"phone,omitempty"`
-		Specialization string  `json:"specialization,omitempty"` // Only for provider
-		Bio            string  `json:"bio,omitempty"`            // Only for provider
+		Name             string  `json:"name" binding:"required"`
+		Email            string  `json:"email" binding:"required,email"`
+		Password         string  `json:"password" binding:"required,min=6"`
+		Role             string  `json:"role" binding:"omitempty,oneof=patient provider admin"`
+		PhoneNumber      *string `json:"phone,omitempty"`
+		SpecializationID *uint   `json:"specialization_id,omitempty"` // FK to specialization
+		Bio              string  `json:"bio,omitempty"`               // Only for provider
 	}
 
 	var input SignupInput
@@ -65,16 +66,24 @@ func Signup(c *gin.Context) {
 		PhoneNumber:  input.PhoneNumber,
 	}
 
-	// Transaction: user + provider
+	// Transaction: user + provider (if needed)
 	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		// Save user
 		if err := tx.Create(&user).Error; err != nil {
 			return err
 		}
+
+		// If provider, also save specialization + bio
 		if role == string(models.RoleProvider) {
+			// Ensure specialization is provided
+			if input.SpecializationID == nil {
+				return fmt.Errorf("specialization_id is required for providers")
+			}
+
 			provider := models.Provider{
-				Specialization: input.Specialization,
-				Bio:            input.Bio,
-				UserID:         user.ID,
+				UserID:           user.ID,
+				SpecializationID: *input.SpecializationID,
+				Bio:              input.Bio,
 			}
 			if err := tx.Create(&provider).Error; err != nil {
 				return err
@@ -84,7 +93,7 @@ func Signup(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, APIResponse{Status: "error", Error: "Could not create user"})
+		c.JSON(http.StatusInternalServerError, APIResponse{Status: "error", Error: err.Error()})
 		return
 	}
 

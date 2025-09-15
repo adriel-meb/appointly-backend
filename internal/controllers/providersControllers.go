@@ -11,9 +11,9 @@ import (
 // CreateProvider handles POST /providers (admin only)
 func CreateProvider(c *gin.Context) {
 	type CreateProviderInput struct {
-		Specialization string `json:"specialization" binding:"required"`
-		Bio            string `json:"bio"`
-		UserID         uint   `json:"user_id" binding:"required"`
+		SpecializationID uint   `json:"specialization_id" binding:"required"` // FK to specializations
+		Bio              string `json:"bio"`
+		UserID           uint   `json:"user_id" binding:"required"`
 	}
 
 	var input CreateProviderInput
@@ -55,11 +55,21 @@ func CreateProvider(c *gin.Context) {
 		return
 	}
 
+	// Optional: validate specialization exists
+	var specialization models.Specialization
+	if err := db.DB.First(&specialization, input.SpecializationID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Status:  "error",
+			Message: "Specialization not found",
+		})
+		return
+	}
+
 	// Create provider
 	provider := models.Provider{
-		Specialization: input.specialization.name,
-		Bio:            input.Bio,
-		UserID:         input.UserID,
+		UserID:           input.UserID,
+		SpecializationID: input.SpecializationID,
+		Bio:              input.Bio,
 	}
 
 	if err := db.DB.Create(&provider).Error; err != nil {
@@ -84,8 +94,8 @@ func CreateProvider(c *gin.Context) {
 func GetAllProviders(c *gin.Context) {
 	var providers []models.Provider
 
-	// Fetch providers with preloaded user data
-	if err := db.DB.Preload("User").Find(&providers).Error; err != nil {
+	// Fetch providers with preloaded user and specialization data
+	if err := db.DB.Preload("User").Preload("Specialization").Find(&providers).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, APIResponse{
 			Status:  "error",
 			Message: "Failed to fetch providers",
@@ -97,7 +107,7 @@ func GetAllProviders(c *gin.Context) {
 	// Success response
 	c.JSON(http.StatusOK, APIResponse{
 		Status:  "success",
-		Message: "--Providers fetched successfully--",
+		Message: "Providers fetched successfully",
 		Data:    providers,
 	})
 }

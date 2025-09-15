@@ -28,7 +28,12 @@ func DbConnect() {
 func DbMigration() {
 	DbConnect()
 	err := DB.AutoMigrate(
-		&models.User{}, &models.Provider{}, &models.Specialization{},
+		&models.User{},
+		&models.Provider{},
+		&models.Specialization{},
+		&models.Service{},
+		&models.Availability{},
+		&models.Booking{},
 	)
 
 	if err != nil {

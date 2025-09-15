@@ -37,6 +37,33 @@ func main() {
 		providers.DELETE("/:id", middleware.RequireAuthMiddleware(), controllers.DeleteProvider)
 	}
 
+	// Specialization routes - ADD AUTHORIZATION LATER
+	specializations := router.Group("/specializations")
+	{
+		specializations.GET("/", controllers.GetAllSpecializations)
+		specializations.POST("/", controllers.CreateSpecialization)
+		specializations.PUT("/:id", controllers.UpdateSpecialization)
+		specializations.DELETE("/:id", controllers.DeleteSpecialization)
+	}
+
+	// Service route
+	services := router.Group("/services")
+	{
+		services.POST("/", controllers.CreateService)
+		services.GET("/", controllers.GetAllServices)
+		services.PUT("/", controllers.UpdateServices)
+		services.DELETE("/", controllers.DeleteServices)
+	}
+
+	// Availability route
+	availabilities := router.Group("/availabilities")
+	{
+		availabilities.POST("/", controllers.CreateService)
+		//availabilities.GET("/", controllers.GetAllServices)
+		//availabilities.PUT("/", controllers.UpdateServices)
+		//availabilities.DELETE("/", controllers.DeleteServices)
+	}
+
 	// Start the server
 	router.Run()
 }

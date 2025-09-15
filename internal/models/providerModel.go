@@ -6,9 +6,9 @@ import (
 
 type Provider struct {
 	gorm.Model
-	ID               uint           `gorm:"primaryKey"`
-	UserID           uint           `gorm:"not null"`
-	SpecializationID uint           `gorm:"not null"`
-	Specialization   Specialization `gorm:"foreignKey:SpecializationID"`
-	Bio              string
+	UserID           uint            `json:"user_id"`
+	User             *User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	SpecializationID uint            `json:"specialization_id"` // FK
+	Specialization   *Specialization `gorm:"foreignKey:SpecializationID" json:"specialization,omitempty"`
+	Bio              string          `json:"bio"`
 }
