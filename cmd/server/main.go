@@ -55,13 +55,28 @@ func main() {
 		services.DELETE("/", controllers.DeleteServices)
 	}
 
-	// Availability route
+	// Availability routes
 	availabilities := router.Group("/availabilities")
 	{
-		availabilities.POST("/", controllers.CreateService)
-		//availabilities.GET("/", controllers.GetAllServices)
-		//availabilities.PUT("/", controllers.UpdateServices)
-		//availabilities.DELETE("/", controllers.DeleteServices)
+		// 1️⃣ Create a new availability
+		// POST /availabilities/
+		availabilities.POST("/", controllers.CreateAvailability)
+
+		// 2️⃣ Get all availabilities with optional filters
+		// GET /availabilities/?provider_id=3&date=2025-09-20&start_date=2025-09-20&end_date=2025-09-30
+		availabilities.GET("/", controllers.GetAllAvailability)
+
+		// 3️⃣ Get a specific availability by ID
+		// GET /availabilities/:id
+		availabilities.GET("/:id", controllers.GetAvailabilityByID)
+
+		// 4️⃣ Update an existing availability
+		// PUT /availabilities/:id
+		availabilities.PUT("/:id", controllers.UpdateAvailability)
+
+		// 5️⃣ Delete an availability
+		// DELETE /availabilities/:id
+		availabilities.DELETE("/:id", controllers.DeleteAvailability)
 	}
 
 	// Start the server
