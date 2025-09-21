@@ -6,6 +6,7 @@ import (
 	"github.com/adriel-meb/appointly-backend/internal/db"
 	"github.com/adriel-meb/appointly-backend/internal/middleware"
 	"github.com/gin-gonic/gin"
+	"log"
 )
 
 func init() {
@@ -17,6 +18,9 @@ func init() {
 
 func main() {
 	router := gin.Default()
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+		log.Printf("endpoint %v %v %v %v", httpMethod, absolutePath, handlerName, absolutePath)
+	}
 
 	router.GET("/", controllers.GetWelcome)
 	router.POST("/auth/register", controllers.Signup)
@@ -51,6 +55,7 @@ func main() {
 	{
 		services.POST("/", controllers.CreateService)
 		services.GET("/", controllers.GetAllServices)
+		services.GET("/:id", controllers.GetServiceByID)
 		services.PUT("/", controllers.UpdateServices)
 		services.DELETE("/", controllers.DeleteServices)
 	}
@@ -77,6 +82,13 @@ func main() {
 		// 5️⃣ Delete an availability
 		// DELETE /availabilities/:id
 		availabilities.DELETE("/:id", controllers.DeleteAvailability)
+	}
+
+	bookings := router.Group("/bookings")
+	{
+		bookings.POST("/", controllers.CreateBooking)
+		bookings.GET("/", controllers.GetAllBooking)
+		bookings.POST("/confirm", controllers.ConfirmBooking)
 	}
 
 	// Start the server

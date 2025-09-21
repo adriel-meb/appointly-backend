@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"fmt"
 	"github.com/adriel-meb/appointly-backend/internal/db"
 	"github.com/adriel-meb/appointly-backend/internal/models"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 )
 
 func CreateService(c *gin.Context) {
@@ -52,7 +54,7 @@ func CreateService(c *gin.Context) {
 		Title:           input.Title,
 		Description:     input.Description,
 		DurationMinutes: uint(input.DurationMinutes),
-		Price:           float32(input.Price),
+		Price:           float64(input.Price),
 		ProviderID:      input.ProviderID,
 	}
 
@@ -107,4 +109,34 @@ func UpdateServices(c *gin.Context) {
 		Status:  "success",
 		Message: "UpdateProvider endpoint - to be implemented",
 	})
+}
+
+// Get specific service
+func GetServiceByID(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		fmt.Println("error in parsing number", err)
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Status:  "error",
+			Message: "Invalid id",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var service models.Service
+	if err := db.DB.First(&service, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, APIResponse{
+			Status:  "error",
+			Message: "Service not found",
+		})
+	}
+
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "Service found successfully",
+		Data:    service,
+	})
+
 }
