@@ -35,6 +35,7 @@ func Signup(c *gin.Context) {
 	var input SignupInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, APIResponse{Status: "error", Error: err.Error()})
+		fmt.Println(err.Error())
 		return
 	}
 
@@ -97,6 +98,7 @@ func Signup(c *gin.Context) {
 		return
 	}
 
+	fmt.Println("User created successfully")
 	// Success response
 	c.JSON(http.StatusCreated, APIResponse{
 		Status:  "success",
@@ -153,8 +155,18 @@ func Login(c *gin.Context) {
 	}
 
 	// 5️⃣ Set auth cookie for browser clients (optional)
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("Authorization", tokenString, 3600*24*2, "", "", false, true)
+	//c.SetSameSite(http.SameSiteNoneMode) // 👈 Allow cross-site
+	c.SetSameSite(http.SameSiteLaxMode) // works for localhost
+	c.SetCookie(
+		"jwt_token", // name
+		tokenString, // value
+		3600*24*30,  // maxAge: 30 days
+		"/",         // path
+		"localhost", // domain (use your frontend domain if cross-site)
+		false,
+		//gin.Mode() == gin.ReleaseMode, // secure only in prod
+		true, // httpOnly
+	)
 
 	// 6️⃣ Return JSON with token and user info
 	c.Header("Authorization", "Bearer "+tokenString)
@@ -195,5 +207,44 @@ func Validate(c *gin.Context) {
 		Status:  "success",
 		Message: "You are logged in",
 		Data:    u,
+	})
+}
+
+func GetProfile(c *gin.Context) {
+	user := c.MustGet("user").(models.User)
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"user": gin.H{
+			"id":    user.ID,
+			"name":  user.Name,
+			"email": user.Email,
+			"role":  user.Role,
+		},
+	})
+}
+
+// Logout handles POST /logout
+// Clears the JWT cookie to log the user out
+func Logout(c *gin.Context) {
+	fmt.Println("----------- logout ------------")
+
+	// Clear the JWT cookie by setting MaxAge to -1
+	c.SetCookie(
+		"jwt_token", // cookie name
+		"",          // empty value
+		-1,          // MaxAge -1 deletes the cookie
+		"/",         // path
+		"localhost", // domain (your frontend domain)
+		false,       // secure false for localhost
+		true,        // httpOnly
+	)
+
+	// Optionally, also clear Authorization header if used
+	c.Header("Authorization", "")
+
+	// Return a success response
+	c.JSON(http.StatusOK, APIResponse{
+		Status:  "success",
+		Message: "Logged out successfully",
 	})
 }

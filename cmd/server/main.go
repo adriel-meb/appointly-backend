@@ -5,8 +5,10 @@ import (
 	"github.com/adriel-meb/appointly-backend/internal/controllers"
 	"github.com/adriel-meb/appointly-backend/internal/db"
 	"github.com/adriel-meb/appointly-backend/internal/middleware"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"log"
+	"time"
 )
 
 func init() {
@@ -18,6 +20,16 @@ func init() {
 
 func main() {
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:4000", "http://localhost:3000"}, // frontend URL
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
 		log.Printf("endpoint %v %v %v %v", httpMethod, absolutePath, handlerName, absolutePath)
 	}
@@ -25,6 +37,8 @@ func main() {
 	router.GET("/", controllers.GetWelcome)
 	router.POST("/auth/register", controllers.Signup)
 	router.POST("/auth/login", controllers.Login)
+	router.POST("/auth/logout", controllers.Logout)
+	router.GET("/me", middleware.RequireAuthMiddleware(), controllers.GetProfile)
 
 	router.GET("/users", controllers.GetAllUsers)
 	router.DELETE("/users/:email", controllers.DeleteUser)
@@ -84,7 +98,7 @@ func main() {
 		availabilities.DELETE("/:id", controllers.DeleteAvailability)
 	}
 
-	bookings := router.Group("/bookings")
+	bookings := router.Group("/bookings").Use(middleware.RequireAuthMiddleware())
 	{
 		bookings.POST("/", controllers.CreateBooking)
 		bookings.GET("/", controllers.GetAllBooking)

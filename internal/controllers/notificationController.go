@@ -1,32 +1,33 @@
 package controllers
 
 import (
-	"fmt"
 	"github.com/adriel-meb/appointly-backend/internal/db"
 	"github.com/adriel-meb/appointly-backend/internal/models"
+	"github.com/adriel-meb/appointly-backend/scripts"
+	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
-func CreateNotification(userID uint, message string, NotificationType models.NotificationType) error {
-
+func CreateNotification(c *gin.Context, userID uint, message string, notificationType models.NotificationType) error {
 	notification := models.Notification{
 		UserID:           userID,
 		Message:          message,
-		NotificationType: NotificationType,
+		NotificationType: notificationType,
 	}
 
+	// Save notification in DB
 	if err := db.DB.Create(&notification).Error; err != nil {
 		return err
 	}
 
-	// Send notification asynchronously
-	switch NotificationType {
-	case models.Email:
-		fmt.Println(".......Email NOTIFICATION SENT........")
-	case models.SMS:
-		fmt.Println(".......SMS NOTIFICATION SENT........")
-	case models.Push:
-		fmt.Println(".......Push NOTIFICATION SENT........")
-
+	// Try sending notification
+	if err := scripts.SendNotifications(notificationType, message); err != nil {
+		c.JSON(http.StatusInternalServerError, APIResponse{
+			Status:  "error",
+			Message: "Failed to send notification",
+			Error:   err.Error(),
+		})
+		return err
 	}
 
 	return nil

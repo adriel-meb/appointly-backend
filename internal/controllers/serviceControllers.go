@@ -86,7 +86,6 @@ func GetAllServices(c *gin.Context) {
 		})
 		return
 	}
-
 	// Success response
 	c.JSON(http.StatusOK, APIResponse{
 		Status:  "success",

@@ -20,7 +20,7 @@ func RequireAuthMiddleware() gin.HandlerFunc {
 		var tokenString string
 
 		// 1️⃣ Check token in cookie
-		if cookie, err := c.Cookie("Authorization"); err == nil {
+		if cookie, err := c.Cookie("jwt_token"); err == nil {
 			tokenString = cookie
 		} else {
 			// 2️⃣ If no cookie, check "Authorization" header with Bearer scheme
