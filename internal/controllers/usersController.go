@@ -16,6 +16,7 @@ type APIResponse struct {
 	Data    interface{} `json:"data,omitempty"`    // returned data (if any)
 	Error   string      `json:"error,omitempty"`   // error details (hidden from clients in real prod)
 	Version string      `json:"version,omitempty"` // optional API version
+	Length  int         `json:"length,omitempty"`  // length of data
 }
 
 // ---------------------- ROUTES ---------------------- //

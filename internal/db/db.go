@@ -34,7 +34,9 @@ func DbMigration() {
 		&models.Service{},
 		&models.Availability{},
 		&models.Booking{},
+		&models.City{},
 		&models.Notification{},
+		&models.Insurance{},
 	)
 
 	if err != nil {

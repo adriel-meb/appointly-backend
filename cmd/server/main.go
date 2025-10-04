@@ -51,7 +51,7 @@ func main() {
 		providers.GET("/", controllers.GetAllProviders)
 		providers.GET("/:id", controllers.GetProviderByID)
 		providers.POST("/", controllers.CreateProvider)
-		providers.PUT("/:id", middleware.RequireAuthMiddleware(), controllers.UpdateProvider)
+		providers.PUT("/:id", controllers.UpdateProvider)
 		providers.DELETE("/:id", middleware.RequireAuthMiddleware(), controllers.DeleteProvider)
 	}
 
@@ -103,6 +103,25 @@ func main() {
 		bookings.POST("/", controllers.CreateBooking)
 		bookings.GET("/", controllers.GetAllBooking)
 		bookings.POST("/confirm", controllers.ConfirmBooking)
+	}
+
+	// Insurance
+	insurances := router.Group("/insurances")
+	{
+		insurances.POST("/", controllers.CreateInsurance)
+		insurances.GET("/", controllers.GetAllInsurances)
+		insurances.GET("/:id", controllers.GetInsuranceByID)
+		insurances.PUT("/:id", controllers.UpdateInsurance)
+		insurances.DELETE("/:id", controllers.DeleteInsurance)
+	}
+
+	cities := router.Group("/cities")
+	{
+		cities.POST("/", controllers.CreateCity)
+		cities.GET("/", controllers.GetAllCities)
+		cities.GET("/:id", controllers.GetCityByID)
+		cities.PUT("/:id", controllers.UpdateCity)
+		cities.DELETE("/:id", controllers.DeleteCity)
 	}
 
 	// Start the server
