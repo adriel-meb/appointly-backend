@@ -1,7 +1,6 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"time"
 )
 
@@ -18,21 +17,23 @@ const (
 	Sunday    DayOfWeekEnum = "SUNDAY"
 )
 
-// Availability represents a provider's available time slot
+// Availability represents a provider's available time range
 type Availability struct {
-	gorm.Model
+	ID uint `gorm:"primaryKey"` // primary key
 
-	ProviderID uint     `gorm:"not null" json:"provider_id"`
+	ProviderID uint     `gorm:"not null;index"`
 	Provider   Provider `gorm:"foreignKey:ProviderID"`
 
-	// For recurring weekly slots
+	// Recurring weekly slot
 	DayOfWeek   *DayOfWeekEnum `gorm:"type:varchar(10)" json:"day_of_week"`
 	IsRecurring bool           `gorm:"default:false" json:"is_recurring"`
 
-	// For specific one-time slots
+	// One-time slot
 	Date *time.Time `json:"date"`
 
 	// Time range
 	StartTime string `gorm:"type:varchar(5);not null" json:"start_time"` // "09:00"
 	EndTime   string `gorm:"type:varchar(5);not null" json:"end_time"`   // "17:00"
+
+	Slots []AvailabilitySlot `gorm:"foreignKey:AvailabilityID;constraint:OnDelete:CASCADE"` // cascade deletion
 }

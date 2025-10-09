@@ -11,6 +11,11 @@ import (
 
 // ------------------ CREATE CITY ------------------
 
+type CitiesResponse struct {
+	Name       string               `json:"name"`
+	Insurances []InsuranceResponse2 `json:"insurances"`
+}
+
 func CreateCity(c *gin.Context) {
 	var input models.City
 
@@ -44,6 +49,7 @@ func CreateCity(c *gin.Context) {
 func GetAllCities(c *gin.Context) {
 	var cities []models.City
 
+	// preload insurances for each city
 	if err := db.DB.Preload("Insurances").Find(&cities).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, APIResponse{
 			Status:  "error",
@@ -53,10 +59,26 @@ func GetAllCities(c *gin.Context) {
 		return
 	}
 
+	// ✅ Build a clean response (hide unnecessary GORM fields)
+	var response []CitiesResponse
+	for _, city := range cities {
+		var insurances []InsuranceResponse2
+		for _, ins := range city.Insurances {
+			insurances = append(insurances, InsuranceResponse2{
+				Name: ins.Name,
+			})
+		}
+
+		response = append(response, CitiesResponse{
+			Name:       city.Name,
+			Insurances: insurances,
+		})
+	}
+
 	c.JSON(http.StatusOK, APIResponse{
 		Status:  "success",
 		Message: "Cities fetched successfully",
-		Data:    cities,
+		Data:    response,
 	})
 }
 
@@ -83,10 +105,22 @@ func GetCityByID(c *gin.Context) {
 		return
 	}
 
+	var insurances []InsuranceResponse2
+	for _, ins := range city.Insurances {
+		insurances = append(insurances, InsuranceResponse2{
+			Name: ins.Name,
+		})
+	}
+
+	response := CitiesResponse{
+		Name:       city.Name,
+		Insurances: insurances,
+	}
+
 	c.JSON(http.StatusOK, APIResponse{
 		Status:  "success",
 		Message: "City fetched successfully",
-		Data:    city,
+		Data:    response,
 	})
 }
 

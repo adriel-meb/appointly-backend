@@ -3,10 +3,40 @@ package controllers
 import (
 	"github.com/adriel-meb/appointly-backend/internal/db"
 	"github.com/adriel-meb/appointly-backend/internal/models"
+	"github.com/adriel-meb/appointly-backend/scripts"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
 )
+
+type InsuranceResponse2 struct {
+	Name string `json:"name"`
+}
+
+type AvailabilitiesResponse struct {
+	IsRecurring bool                  `json:"is_recurring"`
+	DayOfWeek   *models.DayOfWeekEnum `json:"day_of_week"`
+	Date        *string               `json:"date"`
+	StartTime   string                `json:"start_time"`
+	EndTime     string                `json:"end_time"`
+}
+type ProviderResponse struct {
+	ID             uint                     `json:"id"`
+	Bio            string                   `json:"bio"`
+	Rating         float32                  `json:"rating"`
+	Price          string                   `json:"price"`
+	Address        string                   `json:"address"`
+	Lat            float64                  `json:"lat"`
+	Lng            float64                  `json:"lng"`
+	ImageURL       string                   `json:"image_url"`
+	UserName       string                   `json:"user_name"`
+	UserEmail      string                   `json:"user_email"`
+	UserPhone      *string                  `json:"user_phone"`
+	Specialization string                   `json:"specialization"`
+	City           string                   `json:"city"`
+	Insurances     []InsuranceResponse2     `json:"insurances"`
+	Availabilities []AvailabilitiesResponse `json:"availabilities"`
+}
 
 // CreateProvider handles POST /providers (admin only)
 func CreateProvider(c *gin.Context) {
@@ -89,7 +119,7 @@ func CreateProvider(c *gin.Context) {
 }
 
 // GetAllProviders handles GET /providers
-// Supports optional filters: ?query=dr+name&city=Libreville&insurance=CNAMGS
+// Supports optional filters: ?search=dr+name&location=Libreville&insurance=CNAMGS
 func GetAllProviders(c *gin.Context) {
 	var providers []models.Provider
 
@@ -100,7 +130,10 @@ func GetAllProviders(c *gin.Context) {
 	tx := db.DB.Preload("User").
 		Preload("Specialization").
 		Preload("City").
-		Preload("Insurances")
+		Preload("Insurances").
+		Preload("Availabilities")
+
+	// ------------------ Filters ------------------
 
 	// Search in bio, user name, specialization
 	if query != "" {
@@ -111,13 +144,13 @@ func GetAllProviders(c *gin.Context) {
 				"%"+query+"%", "%"+query+"%", "%"+query+"%")
 	}
 
-	// Filter by city
+	// Filter by city name
 	if city != "" {
 		tx = tx.Joins("JOIN cities c ON c.id = providers.city_id").
 			Where("LOWER(c.name) LIKE ?", "%"+city+"%")
 	}
 
-	// Filter by insurance
+	// Filter by insurance name
 	if insurance != "" {
 		tx = tx.Joins("JOIN provider_insurances pi ON pi.provider_id = providers.id").
 			Joins("JOIN insurances i ON i.id = pi.insurance_id").
@@ -125,7 +158,8 @@ func GetAllProviders(c *gin.Context) {
 			Distinct("providers.id")
 	}
 
-	// Execute query
+	// ------------------ Execute Query ------------------
+
 	if err := tx.Find(&providers).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, APIResponse{
 			Status:  "error",
@@ -135,18 +169,58 @@ func GetAllProviders(c *gin.Context) {
 		return
 	}
 
-	// Ensure insurances is always a slice
-	for i := range providers {
-		if providers[i].Insurances == nil {
-			providers[i].Insurances = []*models.Insurance{}
+	// ------------------ Map to Custom Response ------------------
+
+	var response []ProviderResponse
+
+	for _, p := range providers {
+		// Format insurances
+		var insurances []InsuranceResponse2
+		for _, ins := range p.Insurances {
+			insurances = append(insurances, InsuranceResponse2{
+				Name: ins.Name,
+			})
 		}
+
+		// Format availabilities
+		var availabilities []AvailabilitiesResponse
+		for _, availability := range p.Availabilities {
+			availabilities = append(availabilities, AvailabilitiesResponse{
+				Date:        scripts.FormatDate(availability.Date),
+				IsRecurring: availability.IsRecurring,
+				StartTime:   availability.StartTime,
+				EndTime:     availability.EndTime,
+				DayOfWeek:   availability.DayOfWeek,
+			})
+		}
+
+		// Append provider
+		response = append(response, ProviderResponse{
+			ID:             p.ID,
+			UserName:       p.User.Name,
+			Bio:            p.Bio,
+			Specialization: p.Specialization.Name,
+			City:           p.City.Name,
+			Insurances:     insurances,
+			Rating:         p.Rating,
+			Price:          p.Price,
+			Address:        p.Address,
+			Lat:            p.Lat,
+			Lng:            p.Lng,
+			ImageURL:       p.ImageURL,
+			UserEmail:      p.User.Email,
+			UserPhone:      p.User.PhoneNumber,
+			Availabilities: availabilities,
+		})
 	}
+
+	// ------------------ Response ------------------
 
 	c.JSON(http.StatusOK, APIResponse{
 		Status:  "success",
-		Length:  len(providers),
+		Length:  len(response),
 		Message: "Providers fetched successfully",
-		Data:    providers,
+		Data:    response,
 	})
 }
 
@@ -170,10 +244,49 @@ func GetProviderByID(c *gin.Context) {
 		return
 	}
 
+	var availabilities []AvailabilitiesResponse
+	for _, availability := range provider.Availabilities {
+		availabilities = append(availabilities, AvailabilitiesResponse{
+			Date:        scripts.FormatDate(availability.Date),
+			IsRecurring: availability.IsRecurring,
+			StartTime:   availability.StartTime,
+			EndTime:     availability.EndTime,
+			DayOfWeek:   availability.DayOfWeek,
+		})
+
+	}
+
+	var insurances []InsuranceResponse2
+	for _, ins := range provider.Insurances {
+		insurances = append(insurances, InsuranceResponse2{
+			Name: ins.Name,
+		})
+	}
+
+	//customs models
+	response := ProviderResponse{
+		ID:             provider.ID,
+		UserName:       provider.User.Name,
+		Bio:            provider.Bio,
+		Specialization: provider.Specialization.Name,
+		City:           provider.City.Name,
+		Insurances:     insurances,
+		Rating:         provider.Rating,
+		Price:          provider.Price,
+		Address:        provider.Address,
+		Lat:            provider.Lat,
+		Lng:            provider.Lng,
+		ImageURL:       provider.ImageURL,
+		UserEmail:      provider.User.Email,
+		UserPhone:      provider.User.PhoneNumber,
+		Availabilities: availabilities,
+	}
+
+	//instead of returning in data provider i return response
 	c.JSON(http.StatusOK, APIResponse{
 		Status:  "success",
 		Message: "Provider fetched successfully",
-		Data:    provider,
+		Data:    response,
 	})
 }
 

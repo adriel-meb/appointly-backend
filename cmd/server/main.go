@@ -22,7 +22,7 @@ func main() {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:4000", "http://localhost:3000"}, // frontend URL
+		AllowOrigins:     []string{"http://localhost:4000", "http://localhost:3000", "http://192.168.13.133:4000"}, // frontend URL
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
